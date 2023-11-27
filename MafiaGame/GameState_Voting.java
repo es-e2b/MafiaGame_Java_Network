@@ -69,9 +69,9 @@ public class GameState_Voting extends GameState {
 	}
 	public boolean resultVote() {
 		int max=0;
-		for(String nickname : votingList.keySet()) {
-		    int currentVotes = vote.getOrDefault(nickname, 0) + 1;
-		    vote.put(nickname, currentVotes);
+		for(String nominee : votingList.values()) {
+		    int currentVotes = vote.getOrDefault(nominee, 0) + 1;
+		    vote.put(nominee, currentVotes);
 		    max = Math.max(max, currentVotes);
 		}
 		

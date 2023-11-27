@@ -9,6 +9,7 @@ public class Mafia {
 	static GameState state;
 	public Mafia() {
 		Mafia_Integrated.broadcastingSystem("마피아 게임이 시작되었습니다.");
+		Mafia_Integrated.broadcasting(new ChatMsg(ChatMsg.CODE_START));
 		generateRandomRole();
 		state=new GameState_Day();
 		Mafia_Integrated.controlUpdate();
