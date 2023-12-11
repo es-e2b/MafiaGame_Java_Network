@@ -22,6 +22,7 @@ public class ChatMsg implements Serializable {
 	public final static int CODE_NIGHT = 0x1000;
 	public final static int CODE_UPDATE = 0x2000;
 	public final static int CODE_KICK = 0x4000;
+	public final static int CODE_ROLE = 0x8000;
 
 	String nickname;
 	int mode;

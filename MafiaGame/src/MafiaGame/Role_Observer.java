@@ -7,6 +7,7 @@ public class Role_Observer extends Role{
 
 	public Role_Observer(ClientHandler player) {
 		super(player);
+		this.player.sendToClient(new ChatMsg(ChatMsg.MODE_CONTROL,ChatMsg.CODE_ROLE,role));
 	}
 
 	@Override

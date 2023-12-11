@@ -1,18 +1,17 @@
 package MafiaGame;
 
-import java.util.HashMap;
-import java.util.Timer;
 import java.util.TimerTask;
+import java.util.Timer;
 
-public class GameState_Night extends GameState {
-	String state = "밤";
-	private Timer timer=new Timer();
-	int time = 60;
+public class GameState_Day extends GameState {
+//	private Timer timer= new Timer();
+	int time = Mafia.dayTime; //기본은 60
+	String state = "낮";
 	
-	HashMap<String, String> atackList = new HashMap<>();
-	
-	GameState_Night() {
+	GameState_Day() {
 		super();
+		if(isEnded)
+			return;
 		Mafia_Integrated.broadcastingSystem(time+"초 남았습니다.");
         timer.scheduleAtFixedRate(new TimerTask() {
             @Override
@@ -26,26 +25,24 @@ public class GameState_Night extends GameState {
             	time--;
             }
         }, 0, 1000); // 0초부터 시작하여 1초 간격으로 실행
-		
 	}
-
+	
 	String resultAbility(String nickname, String message) {
-		String returnMessage = Mafia.roles.get(nickname).ability(message);
-		return returnMessage;
+		return "지금은 때가 아닙니다.";
 	}
 
 	void readMessage(ChatMsg msg) {
-		Mafia_Integrated.players.get(msg.nickname).sendSystemMessageToClient("주무실 시간입니다.");
+		Mafia_Integrated.broadcasting(msg);
 	}
 
 	@Override
 	void notifyCreation() {
-		Mafia.broadcastingToAlive(new ChatMsg(ChatMsg.CODE_NIGHT));
-		Mafia_Integrated.broadcastingSystem("밤이 되었습니다.");
+		Mafia.broadcastingToAlive(new ChatMsg(ChatMsg.CODE_DAY)); // GUI 원격 조작 메세지는 생존자에게만 전달
+		Mafia_Integrated.broadcastingSystem("낮이 되었습니다.");
 	}
 
 	@Override
 	void nextState() {
-		Mafia.state = new GameState_Day();
+		Mafia.state = new GameState_Voting();
 	}
 }

@@ -6,9 +6,9 @@ import java.util.Map.Entry;
 public class GameState_Voting extends GameState {
 //	Mafia game;
 	String state="투표";
-//	int time = 60; // 기본 60초, 추후 설정을 통해 변경 가능
-	int time = 5;
-	private Timer timer=new Timer();
+//	int time = 60; // 기본 60초
+	int time = Mafia.votingTime;
+//	private Timer timer=new Timer();
 	String Nominee=null;
 	boolean isDebate=false;
 	boolean isVotingTime=true;
@@ -19,11 +19,15 @@ public class GameState_Voting extends GameState {
 
 	GameState_Voting() {
 		super();
+		if(isEnded)
+			return;
 		startVote();
 	}
 	void notifyCreation() {
-		Mafia.broadcastingToAlive(new ChatMsg(ChatMsg.CODE_VOTING));
-		Mafia_Integrated.broadcastingSystem("투표가 시작되었습니다.");
+		Mafia_Integrated.broadcasting(new ChatMsg(ChatMsg.CODE_VOTING));
+		Mafia_Integrated.broadcastingSystem("\n투표가 시작되었습니다.\n"
+				+ "투표하고 싶은 대상의 닉네임을 '/닉네임'으로 입력하세요.\n"
+				+ "여러 번 투표할 수 있으며 마지막으로 지목한 대상만 투표 목록에 올라갑니다.\n");
 	}
 	String resultAbility(String user, String nominee) {
 		if(user.equals(Nominee))
@@ -108,8 +112,9 @@ public class GameState_Voting extends GameState {
 	}
 	private void debateTime() {
 		isDebate=true;
-		Mafia_Integrated.broadcasting(new ChatMsg(ChatMsg.CODE_DAY));
-		Mafia_Integrated.players.get(Nominee).sendSystemMessageToClient("10초간 최후의 변론하세요.");
+		Mafia_Integrated.broadcasting(new ChatMsg(ChatMsg.CODE_VOTING));
+		Mafia_Integrated.players.get(Nominee).sendToClient(new ChatMsg(ChatMsg.CODE_DAY));
+		Mafia_Integrated.broadcastingSystem("최후의 변론 시간입니다.\n 20초 남았습니다.");
 	    timer.schedule(new TimerTask() {
 	        @Override
 	        public void run() {
@@ -117,7 +122,7 @@ public class GameState_Voting extends GameState {
 	        	Mafia_Integrated.players.get(Nominee).sendToClient(new ChatMsg(ChatMsg.CODE_VOTING));
 	        	startApprovalVote();
 	        }
-	    }, 10000);
+	    }, 20000);
 	}
 	void startApprovalVote() {
 		isApprovalTime=true;
@@ -138,7 +143,9 @@ public class GameState_Voting extends GameState {
         		}
             	if(resultApprovalVote()) {
             		Mafia_Integrated.broadcastingSystem("["+Nominee+"]"+" 사형되었습니다.");
+            		Mafia.deadList.add(Nominee);
         			Mafia.roles.put(Nominee, new Role_Dead(Mafia_Integrated.players.get(Nominee)));
+        			Mafia.broadcastingToDead(new ChatMsg(ChatMsg.MODE_DEADCHAT, ChatMsg.CODE_UPDATE, Mafia.deadList()));
             	}
             	else
             		Mafia_Integrated.broadcastingSystem("부결되었습니다.");

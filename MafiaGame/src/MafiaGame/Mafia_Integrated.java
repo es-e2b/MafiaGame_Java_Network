@@ -30,24 +30,29 @@ public class Mafia_Integrated extends JFrame {
 	private int serverPort;
 	private ObjectOutputStream out;
 	private ObjectInputStream in;
-	private String nickname;
+	public String nickname;
 	
 	//클라이언트 관련 필드
 	private Thread receiveThread = null;
 	private Socket socket;
 	private boolean isHost;
+	private static PrivateChat instanceChat = null;
+	private Mafia_Integrated instance;
 	
 	//마피아 게임 객체
 	static Mafia mafia= null; //서버에서만 생성
 	static void endGame() {
+//		mafia.state.timer.cancel();
 		mafia = null;
 		broadcastingSystem("게임이 종료되었습니다.");
 		broadcasting(new ChatMsg(ChatMsg.CODE_END));
 		controlUpdate();
+		broadcasting(new ChatMsg(ChatMsg.MODE_CONTROL, ChatMsg.CODE_ROLE, ""));
 	}
 	
 	public Mafia_Integrated(String serverAddress, int serverPort) { // 초기 서버 주소와 포트 지정받으며 클라이언트 GUI 생성
 		super("Mafia Game");
+		instance=this;
 		
 		this.serverAddress = serverAddress;
 		this.serverPort = serverPort;
@@ -163,17 +168,7 @@ public class Mafia_Integrated extends JFrame {
 			disconnect();
 			printDisplay("서버와 연결이 종료되었습니다.\n");
 			setEnableJoin();
-//			b_join.setEnabled(true);
-//			b_create.setEnabled(true);
-//			b_exit.setEnabled(false);
-//			b_close.setEnabled(true);
-//			t_userID.setEditable(true);
-//			t_hostAddr.setEditable(true);
-//			t_portNum.setEditable(true);
-			
 			setUnableInputPanel();
-//			t_input.setEnabled(false);
-//			b_send.setEnabled(false);
 			}
 		});
 		t_userID.setText("guest" + getLocalAddr().split("\\.")[3]);
@@ -223,6 +218,10 @@ public class Mafia_Integrated extends JFrame {
 		b_start = new JButton("시작");
 		b_start.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
+//				if(players.size()<5) {
+//					printDisplay("최소 5명부터 시작할 수 있습니다.");
+//					return;
+//				}
 				mafia = new Mafia();
 				b_start.setEnabled(false);
 			}
@@ -295,6 +294,39 @@ public class Mafia_Integrated extends JFrame {
 			        case ChatMsg.MODE_SYSTEM:
 			        	printDisplay(inMsg.message);
 			        	break;
+			        	
+			        case ChatMsg.MODE_MAFIACHAT:
+			        	if(instanceChat==null)
+			        		instanceChat = new PrivateChat(PrivateChat.MafiaChat, instance);
+			        	switch(inMsg.code) {
+			        	case ChatMsg.CODE_UPDATE:
+			        		privatePlayerList(inMsg.message);
+			        		break;
+			        	default:
+			        		instanceChat.printDisplay(inMsg.nickname + ": "+inMsg.message);
+			        		return;
+			        	}
+			        	break;
+			        	
+			        case ChatMsg.MODE_DEADCHAT:
+			        	if(instanceChat==null) {
+			        		instanceChat = new PrivateChat(PrivateChat.DeadChat, instance);
+			        	}
+			        	else if(instanceChat.property.equals(PrivateChat.MafiaChat)) {
+			        		instanceChat.exit();
+			        		instanceChat = new PrivateChat(PrivateChat.DeadChat, instance);
+			        	}
+			        	switch(inMsg.code) {
+			        	case ChatMsg.CODE_UPDATE:
+			        		privatePlayerList(inMsg.message);
+			        		break;
+			        	default:
+			        		instanceChat.printDisplay(inMsg.nickname + ": "+inMsg.message);
+			        		return;
+			        	}
+			        	break;
+			        	
+			        
 			        case ChatMsg.MODE_CONTROL:
 			        	/*
 			        	CODE_START
@@ -311,6 +343,11 @@ public class Mafia_Integrated extends JFrame {
 			        	case ChatMsg.CODE_END:
 			        		setEnableExit();
 			        		setEnableInputPanel();
+			        		setEnableDisplay();
+			        		if(instanceChat!=null) {
+			        			instanceChat.exit();
+			        			instanceChat=null;
+			        		}
 			        		break;
 			        	case ChatMsg.CODE_DEATH:
 			        		setUnableDisplay();
@@ -332,6 +369,9 @@ public class Mafia_Integrated extends JFrame {
 			        	case ChatMsg.CODE_KICK:
 			        		setEnableJoin();
 			        		setUnableInputPanel();
+			        		break;
+			        	case ChatMsg.CODE_ROLE:
+			        		updateRole(inMsg.message);
 			        		break;
 			        	default:
 			        		return;
@@ -377,7 +417,6 @@ public class Mafia_Integrated extends JFrame {
 		send(new ChatMsg(nickname, ChatMsg.MODE_EXIT));
 		t_players.setText("");
 		try {
-//			receiveThread.interrupt();
 			receiveThread = null;
 			socket.close();
 		} catch (IOException e) {
@@ -517,7 +556,7 @@ public class Mafia_Integrated extends JFrame {
 	static void controlUpdate() {
 		StringBuilder playerListBuilder=new StringBuilder();
 		for(String nickname : players.keySet()) {
-			if(!Mafia.roles.containsKey(nickname))
+			if(mafia==null|| !Mafia.roles.containsKey(nickname))
 				playerListBuilder.append(nickname).append("\n");
 			else if(Mafia.roles.get(nickname).toString().equals("관전자"))
 				playerListBuilder.append(nickname).append(" (관전자)\n");
@@ -532,6 +571,15 @@ public class Mafia_Integrated extends JFrame {
 		t_players.setText("");
 		t_players.append(playerList);
 	}
+	private void updateRole(String role) { // 역할 출력
+		t_role.setText(role);
+	}
+
+	static void privatePlayerList(String playerList) {
+		instanceChat.t_players.setText("");
+		instanceChat.t_players.setText(playerList);
+	}
+	
 	public class ClientHandler extends Thread { // 서버 모드 -> 클라이언트별 통신 쓰레드 -> 클라이언트별 메세지 객체 읽기/보내기
 		private Socket clientSocket;
 		private ObjectOutputStream out;
@@ -552,12 +600,21 @@ public class Mafia_Integrated extends JFrame {
 		private void addPlayer() {
 			players.put(nickname, this);
 			if(mafia!=null) {
+				Mafia.deadList.add(nickname+"(관전자)");
 				Mafia.roles.put(nickname, new Role_Observer(players.get(nickname)));
+				Mafia.broadcastingToDead(new ChatMsg(ChatMsg.MODE_DEADCHAT, ChatMsg.CODE_UPDATE, Mafia.deadList()));
 				sendToClient(new ChatMsg(ChatMsg.CODE_DEATH));
 			}
+
+			controlUpdate();
 		}
 		private void removePlayer() {
 			players.remove(nickname);
+			if(mafia!=null) {
+				mafia.state.checkVictory();
+				mafia.roles.remove(nickname);
+			}
+			controlUpdate();
 		}
 		private void receiveMessages(Socket cs) {
 			try {
@@ -572,7 +629,7 @@ public class Mafia_Integrated extends JFrame {
 						nickname = msg.nickname;
 						addPlayer();
 						broadcasting(new ChatMsg(nickname, ChatMsg.MODE_SYSTEM ,nickname+" 님이 입장하였습니다."));
-						controlUpdate();
+//						controlUpdate();
 						continue;
 					}
 					else if (msg.mode == ChatMsg.MODE_HOST) {
@@ -582,7 +639,7 @@ public class Mafia_Integrated extends JFrame {
 							nickname = msg.nickname;
 							addPlayer();
 							broadcasting(new ChatMsg(nickname, ChatMsg.MODE_SYSTEM ,nickname+" 님이 입장하였습니다."));
-							controlUpdate();
+//							controlUpdate();
 							continue;
 						}
 						sendSystemMessageToClient("이미 해당 주소로 서버가 존재합니다.");
@@ -593,7 +650,38 @@ public class Mafia_Integrated extends JFrame {
 						break;
 					}
 					if(msg.message.charAt(0)=='/') {
-						msg=new ChatMsg(msg.nickname,ChatMsg.MODE_COMMAND,msg.message.substring(1));
+						String command=msg.message.substring(1);
+						msg=new ChatMsg(msg.nickname,ChatMsg.MODE_COMMAND,command);
+						if(isHost&&mafia==null) {
+							String[] hostCommand=command.split(" ");
+							int n=Integer.parseInt(hostCommand[1]);
+							switch(hostCommand[0]) {
+							case "낮":
+								Mafia.dayTime=n;
+								broadcastingSystem("낮 시간이 "+Mafia.dayTime+"초로 변경됐습니다.");
+								continue;
+							case "투표":
+								Mafia.votingTime=n;
+								broadcastingSystem("투표 시간이 "+Mafia.votingTime+"초로 변경됐습니다.");
+								continue;
+							case "밤":
+								Mafia.nightTime=n;
+								broadcastingSystem("밤 시간이 "+Mafia.nightTime+"초로 변경됐습니다.");
+								continue;
+							case "마피아":
+								Mafia.numMafia=n;
+								broadcastingSystem("마피아 수가 "+Mafia.numMafia+"명으로 변경됐습니다.");
+								continue;
+							case "의사":
+								Mafia.numDoctor=n;
+								broadcastingSystem("의사 수가 "+Mafia.numDoctor+"명으로 변경됐습니다.");
+								continue;
+							case "경찰":
+								Mafia.numPolice=n;
+								broadcastingSystem("경찰 수가 "+Mafia.numPolice+"명으로 변경됐습니다.");
+								continue;
+							}
+						}
 					}
 					if(mafia!=null) {
 						mafia.readMsg(msg);
@@ -607,12 +695,11 @@ public class Mafia_Integrated extends JFrame {
 					}
 				}
 				removePlayer();
-				printDisplay(nickname + " 님이 퇴장하였습니다.");
-				controlUpdate();
+				broadcastingSystem(nickname + " 님이 퇴장하였습니다.");
 			} catch (IOException e) {
 				removePlayer();
-				printDisplay(nickname + " 님의 연결이 해제되었습니다.");
-				controlUpdate();
+				broadcastingSystem(nickname + " 님이 퇴장하였습니다.");
+//				controlUpdate();
 			} catch (ClassNotFoundException e) {
 				e.printStackTrace();
 			} finally {
@@ -651,5 +738,6 @@ public class Mafia_Integrated extends JFrame {
 		int serverPort = 54321;
 		
 		new Mafia_Integrated(serverAddress, serverPort);
+//		instanceChat = new PrivateChat(PrivateChat.DeadChat, instance);
 	}
 }

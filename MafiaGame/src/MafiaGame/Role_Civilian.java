@@ -6,6 +6,7 @@ public class Role_Civilian extends Role {
 	String role = "시민";
 	public Role_Civilian(ClientHandler player) {
 		super(player);
+		this.player.sendToClient(new ChatMsg(ChatMsg.MODE_CONTROL,ChatMsg.CODE_ROLE,role));
 	}
 	@Override
 	public String ability(String nickname) {
