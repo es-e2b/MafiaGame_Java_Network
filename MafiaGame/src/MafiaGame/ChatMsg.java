@@ -8,9 +8,9 @@ public class ChatMsg implements Serializable {
 	public final static int MODE_ENTRANCE = 0x1;
 	public final static int MODE_HOST = 0x2;
 	public final static int MODE_EXIT = 0x3;
-	public final static int MODE_MESSAGE = 0x4; // nickname : 메세지 전달
-	public final static int MODE_COMMAND = 0x8; // '/'명령어를 통해 시스템에만 전달
-	public final static int MODE_SYSTEM = 0x10; // nickname 없이 전달
+	public final static int MODE_MESSAGE = 0x4; // nickname : 메세지 전달.
+	public final static int MODE_COMMAND = 0x8; // '/'명령어를 통해 시스템에만 전달.
+	public final static int MODE_SYSTEM = 0x10; // nickname 없이 전달.
 	public final static int MODE_MAFIACHAT = 0x20;
 	public final static int MODE_DEADCHAT = 0x30;
 	public final static int MODE_CONTROL = 0x40;
